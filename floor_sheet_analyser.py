@@ -116,6 +116,19 @@ API_KEY = ""
 bot = telebot.TeleBot(API_KEY, parse_mode=None)
 wait_time = 4
 
+
+def find_button(driver, i):
+    noErrFlag = False
+    while not noErrFlag:
+        try:
+            button_element = driver.find_element(By.XPATH, f"//a/span[text()='{i}']")
+            noErrFlag = True
+        except Exception as e:
+            print(f"Exception occurred: {e}")
+            noErrFlag = False
+            pass
+    return button_element
+
 if __name__ == '__main__':
     try:
         driver = webdriver.Chrome()
@@ -134,7 +147,7 @@ if __name__ == '__main__':
         while True:
             
             # beginning of minute
-            button_element = driver.find_element(By.CSS_SELECTOR, ".box__filter--search")
+            button_element = find_button(driver, i)
             print("Click the button")
             button_element.click()
             print("Wait until the page loads 500 rows")
@@ -143,10 +156,10 @@ if __name__ == '__main__':
             extracted_data = extract_table_data(html_content=html_content)
             df = write_to_csv(pd.DataFrame(), extracted_data, "1th_table.csv")
 
-            if  not last_contract_num == df['Contract No.'].iloc[0]:
-                # coming here means , somethings changed
+            if last_contract_num != df['Contract No.'].iloc[0]:
+                # coming here means , somethings changed in floorsheet
                 last_contract_num = df['Contract No.'].iloc[0]
-                for i in range(2, 6):
+                for i in range(2, 16):
                     button_element = driver.find_element(By.XPATH, f"//a/span[text()='{i}']")
                     print("Click the button")
                     button_element.click()
@@ -162,18 +175,16 @@ if __name__ == '__main__':
                         new_df['Stock Symbol_Seller'] = new_df['Stock Symbol'] + '_' + new_df['Seller']
                         new_df.to_csv(f"{i}th_table.csv", index=False)
                         df = df._append(df, ignore_index=True)
+                        if last_contract_num in new_df['Contract No.']:
+                            break
+                    
 
                 check_success(df)
             print("Waiting for new page")
             wait_until_next_minute()
 
 
-
-
-
-    # old_df = old_df._append(df, ignore_index=True)
-    # return old_df
     except Exception as e2:
         e2 = traceback.format_exc(limit=None, chain=True)
-        bot.send_message(800851598, f"Phase2_bulk_download threw error!!\n```{e2}```")
+        bot.send_message(800851598, f"Bot threw error!!\n```{e2}```")
         traceback.print_exc()
